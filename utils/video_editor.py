@@ -1,8 +1,11 @@
+import textwrap
 from abc import ABC, abstractmethod
 import cv2
 from image_processor import ImageProcessor
 import numpy as np
 
+
+TEXT_FOND =cv2.FONT_HERSHEY_SIMPLEX
 
 class TimeLine:
     def __init__(self):
@@ -115,6 +118,13 @@ class NoEffect(Effect):
         super().__init__("Raw")
 
     def apply_effect(self, image):
+        wrapped_text = textwrap.wrap('Raw input', width=35)
+        for i, line in enumerate(wrapped_text):
+            textsize = cv2.getTextSize(line, TEXT_FOND, 1, 2)[0]
+            gap = textsize[1] + 10
+            x = 10
+            y = 50 + i*gap
+            cv2.putText(image, line, (x, y), TEXT_FOND, 1, (255, 255, 255), 2, cv2.LINE_AA)
         return image
 
 
@@ -127,7 +137,15 @@ class GreyScaleEffect(Effect):
         super().__init__("GreyScale")
 
     def apply_effect(self, image):
-        return ImageProcessor.bgr_to_gray(image)
+        gray = ImageProcessor.bgr_to_gray(image)
+        wrapped_text = textwrap.wrap('Gray scale', width=35)
+        for i, line in enumerate(wrapped_text):
+            textsize = cv2.getTextSize(line, TEXT_FOND, 1, 2)[0]
+            gap = textsize[1] + 10
+            x = 10
+            y = 50 + i*gap
+            cv2.putText(gray, line, (x, y), TEXT_FOND, 1, (255, 255, 255), 2, cv2.LINE_AA)
+        return gray
 
 
 class GaussianBlurEffect(Effect):
@@ -142,7 +160,15 @@ class GaussianBlurEffect(Effect):
         self.sigma_y = sigma_y
 
     def apply_effect(self, image):
-        return ImageProcessor.gaussian_blur(image, self.kernel, self.sigma_x, self.sigma_y)
+        blur = ImageProcessor.gaussian_blur(image, self.kernel, self.sigma_x, self.sigma_y)
+        wrapped_text = textwrap.wrap('Gaussian blur: {} kernel'.format(self.kernel), width=35)
+        for i, line in enumerate(wrapped_text):
+            textsize = cv2.getTextSize(line, TEXT_FOND, 1, 2)[0]
+            gap = textsize[1] + 10
+            x = 10
+            y = 50 + i*gap
+            cv2.putText(blur, line, (x, y), TEXT_FOND, 1, (255, 255, 255), 2, cv2.LINE_AA)
+        return blur
 
 
 class BilateralBlurEffect(Effect):
@@ -150,13 +176,22 @@ class BilateralBlurEffect(Effect):
     Apply bilateral blur effect.
     """
 
-    def __init__(self, color_space, color_range):
+    def __init__(self,sigma_space, sigma_range):
         super().__init__("BlurEffect")
-        self.color_space = color_space
-        self.color_range = color_range
+        self.sigma_range = sigma_range
+        self.sigma_space = sigma_space
 
     def apply_effect(self, image):
-        return ImageProcessor.bilateral_filer(image, self.color_space, self.color_range)
+        blur = cv2.bilateralFilter(image, -1, self.sigma_range, self.sigma_space)
+        wrapped_text = textwrap.wrap('Bilateral filter: sigmaColor={}, sigmaRange={}'
+                    .format(self.sigma_range, self.sigma_space), width=35)
+        for i, line in enumerate(wrapped_text):
+            textsize = cv2.getTextSize(line, TEXT_FOND, 1, 2)[0]
+            gap = textsize[1] + 10
+            x = 10
+            y = 50 + i*gap
+            cv2.putText(blur, line, (x, y), TEXT_FOND, 1, (255, 255, 255), 2, cv2.LINE_AA)
+        return blur
 
 
 class HSVMaskEffect(Effect):
@@ -192,33 +227,145 @@ class HSVMaskEffect(Effect):
             # Convert mask to 3 channel BGR
             result = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
 
+        wrapped_text = textwrap.wrap('HSV-mask: Red is removed with erosion, Green is added back with dilation', width=35)
+        for i, line in enumerate(wrapped_text):
+            textsize = cv2.getTextSize(line, TEXT_FOND, 1, 2)[0]
+            gap = textsize[1] + 10
+            x = 10
+            y = 50 + i*gap
+            cv2.putText(result, line, (x, y), TEXT_FOND, 1, (255, 255, 255), 2, cv2.LINE_AA)
+
         return result
 
 
 class SobelEffect(Effect):
-    def __init__(self, dx, dy, kernel_size, scale=1, delta=0):
+    def __init__(self, kernel_size=3, scale=1, delta=0):
         super().__init__("Sobel")
-        self.dx = dx
-        self.dy = dy
         self.kernel_size = kernel_size
         self.scale = scale
         self.delta = delta
 
     def apply_effect(self, image):
-        gray = ImageProcessor.bgr_to_gray(image)
-        return cv2.Sobel(gray, -1, self.dx, self.dy, ksize=self.kernel_size, scale=self.scale, delta=self.delta)
+        gray = ImageProcessor.bgr_to_gray(image, multi_channel=False)
+        blur = cv2.GaussianBlur(gray, (5, 5), 0, 0)
+        horizontal = cv2.Sobel(blur, cv2.CV_16S, 0, 1, ksize=self.kernel_size, scale=self.scale, delta=self.delta)
+        vertical = cv2.Sobel(blur, cv2.CV_16S, 1, 0, ksize=self.kernel_size, scale=self.scale, delta=self.delta)
+
+        horizontal = cv2.convertScaleAbs(horizontal)
+        vertical = cv2.convertScaleAbs(vertical)
+
+        color_edge = np.zeros_like(image)
+        color_edge[:, :, 1] = horizontal
+        color_edge[:, :, 2] = vertical
+
+        wrapped_text = textwrap.wrap('Sobel edge detection ({},{}) kernel: vertical edges red, horizontal edges green'
+                    .format(self.kernel_size, self.kernel_size), width=35)
+        for i, line in enumerate(wrapped_text):
+            textsize = cv2.getTextSize(line, TEXT_FOND, 1, 2)[0]
+            gap = textsize[1] + 10
+            x = 10
+            y = 50 + i*gap
+            cv2.putText(color_edge, line, (x, y), TEXT_FOND, 1, (255, 255, 255), 2, cv2.LINE_AA)
+
+        return color_edge
 
 
 class HoughCircleEffect(Effect):
-    def __init__(self):
+    def __init__(self, dp=1, min_dist=200, param1=200, param2=45):
         super().__init__("Hough Circles")
+        self.dp = dp
+        self.min_dist = min_dist
+        self.param1 = param1
+        self.param2 = param2
 
     def apply_effect(self, image):
-        blur = cv2.blur(image, (7,7))
-        gray = ImageProcessor.bgr_to_gray(blur)
-        edge_v = cv2.Sobel(gray, -1, 1, 0, ksize=3, scale=1, delta=-50)
-        edge_h = cv2.Sobel(gray, -1, 0, 1, ksize=3, scale=1, delta=-50)
-        edge = edge_v + edge_h
+        gray = ImageProcessor.bgr_to_gray(image, multi_channel=False)
+        blur = cv2.GaussianBlur(gray, (5, 5), 0, 0)
+        circles = cv2.HoughCircles(blur, cv2.HOUGH_GRADIENT, 1, 200,
+                                   param1=200, param2=42, minRadius=50, maxRadius=200)
+
+        if circles is not None:
+            circles = np.uint16(np.around(circles))
+            for i in circles[0, :]:
+                # draw the outer circle
+                cv2.circle(image, (i[0], i[1]), i[2], (0, 255, 0), 2)
+                # draw the center of the circle
+                cv2.circle(image, (i[0], i[1]), 2, (0, 0, 255), 3)
+
+        wrapped_text = textwrap.wrap('HoughCircle: dp={}, Canny upper threshold={}, Hough threshold={}'
+                                     .format(self.dp, self.param1, self.param2), width=35)
+        for i, line in enumerate(wrapped_text):
+            textsize = cv2.getTextSize(line, TEXT_FOND, 1, 2)[0]
+            gap = textsize[1] + 10
+            x = 10
+            y = 50 + i*gap
+            cv2.putText(image, line, (x, y), TEXT_FOND, 1, (255, 255, 255), 2, cv2.LINE_AA)
+        return image
 
 
-        return cv2.Canny(edge, 200, 10)
+class FlashyBoxEffect(Effect):
+    def __init__(self, lower_bound, upper_bound):
+        super().__init__("Flashy Rectangle")
+        self.upper_bound = upper_bound
+        self.lower_bound = lower_bound
+
+    def apply_effect(self, image):
+        # blur image first to get better mask
+        blur = ImageProcessor.gaussian_blur(image, (7, 7), sigma_x=1.5, sigma_y=1.5)
+        mask = ImageProcessor.mask_hsv(ImageProcessor.bgr_to_hsv(blur), self.lower_bound, self.upper_bound)
+
+        contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        max_area = 0
+        has_contour = False
+        for c in contours:
+            # get the bounding rect
+            x, y, w, h = cv2.boundingRect(c)
+            area = w*h
+            if max_area < area:
+                max_area = area
+                max_contour = c
+                has_contour = True
+        if has_contour:
+            # draw a green rectangle to visualize the bounding rect
+            x, y, w, h = cv2.boundingRect(max_contour)
+            cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
+        wrapped_text = textwrap.wrap('Object of interest', width=35)
+        for i, line in enumerate(wrapped_text):
+            textsize = cv2.getTextSize(line, TEXT_FOND, 1, 2)[0]
+            gap = textsize[1] + 10
+            x = 10
+            y = 50 + i*gap
+            cv2.putText(image, line, (x, y), TEXT_FOND, 1, (255, 255, 255), 2, cv2.LINE_AA)
+        return image
+
+
+class TemplateMatchEffect(Effect):
+    def __init__(self):
+        super().__init__("Template match")
+
+    def apply_effect(self, image):
+        gray = ImageProcessor.bgr_to_gray(image, multi_channel=False)
+        blur = cv2.GaussianBlur(gray, (5, 5), 0, 0)
+
+        # Find circle
+        circles = cv2.HoughCircles(blur, cv2.HOUGH_GRADIENT, 1, 200,
+                                   param1=200, param2=42, minRadius=50, maxRadius=200)
+
+        # Extract circle out of image to use as template
+        if circles is not None:
+            circles = np.uint16(np.around(circles))
+            circle = circles[0, 0]
+            circle_center_x = circle[0]
+            circle_center_y = circle[1]
+            circle_radius = circle[2]
+
+            pattern = image[circle_center_y-circle_radius:circle_center_y+circle_radius,
+                            circle_center_x - circle_radius:circle_center_x + circle_radius,:]
+
+            res = cv2.matchTemplate(image, pattern, cv2.TM_SQDIFF_NORMED)
+            height, width, _ = image.shape
+            res = cv2.resize(res, (width, height), interpolation=cv2.INTER_AREA)
+            return res
+
+        return image

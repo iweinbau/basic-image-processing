@@ -9,7 +9,7 @@ def nothing(x):
 
 
 # Initializing the webcam feed.
-cap = cv2.VideoCapture("input/take_6.mp4")
+cap = cv2.VideoCapture(0)
 cap.set(3, 1280)
 cap.set(4, 720)
 
@@ -71,22 +71,22 @@ while next:
     # Show this stacked frame at 40% of the size.
     cv2.imshow('Trackbars', cv2.resize(stacked, None, fx=0.4, fy=0.4))
 
-    while True:
-        key = cv2.waitKey(1)
-        if key == ord('n'):
-            break
-        if key == ord('q'):
-            break
-        # If the user presses `s` then print this array.
-        if key == ord('s'):
-            thearray = [[l_h, l_s, l_v], [u_h, u_s, u_v]]
-            print(thearray)
+    # while True:
+    key = cv2.waitKey(1)
+    # if key == ord('n'):
+    #     break
+    # if key == ord('q'):
+    #     break
+    # If the user presses `s` then print this array.
+    if key == ord('s'):
+        thearray = [[l_h, l_s, l_v], [u_h, u_s, u_v]]
+        print(thearray)
 
-            # Also save this array as penval.npy
-            np.save('hsv_value', thearray)
-            break
-        if key == 27:
-            break
+        # Also save this array as penval.npy
+        np.save('hsv_value', thearray)
+        break
+    if key == 27:
+        break
 
 
 

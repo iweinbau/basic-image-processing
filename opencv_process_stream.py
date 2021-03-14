@@ -11,7 +11,7 @@ def between(cap, lower: int, upper: int) -> bool:
 
 def main() -> None:
     # OpenCV input objects to work with
-    cap = cv2.VideoCapture('input/take_6.mp4')
+    cap = cv2.VideoCapture(0)
     fps = int(round(cap.get(5)))
     frame_width = int(cap.get(3))
     frame_height = int(cap.get(4))
@@ -30,7 +30,7 @@ def main() -> None:
                 pass
             # ...
 
-            effect_1 = HoughCircleEffect()
+            effect_1 = TemplateMatchEffect()
 
             frame_ = effect_1.apply_effect(frame)
             # (optional) display the resulting frame
